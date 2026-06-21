@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家族の健康手帳</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;background:#f5f5f0;min-height:100vh}
+.app{max-width:600px;margin:0 auto;padding:16px}
+.header{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:14px 16px;background:#fff;border-radius:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.logo{width:38px;height:38px;border-radius:50%;background:#e8f4ff;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+h1{font-size:17px;font-weight:600}
+.sync{margin-left:auto;font-size:11px;color:#4caf50}
+.section{background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.mbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.mwrap{display:flex;align-items:center}
+.mbtn{padding:7px 15px;border-radius:999px;border:1.5px solid #ddd;background:#fff;cursor:pointer;font-size:14px;color:#666;font-family:inherit}
+.mbtn.active{background:#1976d2;color:#fff;border-color:#1976d2}
+.edbtn{font-size:13px;cursor:pointer;color:#ccc;background:none;border:none;padding:2px 5px}
+.addbtn{padding:7px 13px;border-radius:999px;border:1.5px dashed #ccc;background:transparent;cursor:pointer;font-size:13px;color:#aaa;font-family:inherit}
+.addform{margin-top:10px;display:none;gap:8px;align-items:center}
+.addform input{flex:1;padding:8px 12px;border:1.5px solid #ddd;border-radius:999px;font-size:14px;font-family:inherit;outline:none}
+.addform .abtn{padding:8px 16px;border-radius:999px;background:#1976d2;border:none;color:#fff;font-size:14px;cursor:pointer;font-family:inherit}
+.addform .xbtn{background:none;border:none;font-size:22px;color:#ccc;cursor:pointer;padding:0 4px}
+.tabs{display:flex;background:#fff;border-radius:16px;overflow-x:auto;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:1 0 auto;min-width:62px;padding:10px 4px;font-size:11px;cursor:pointer;color:#aaa;border:none;background:none;border-bottom:2.5px solid transparent;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap}
+.tab .ti{font-size:17px}
+.tab.active{color:#1976d2;border-bottom-color:#1976d2;background:#f0f7ff}
+.content{background:#fff;border-radius:16px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08);min-height:260px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.card{background:#f8f9ff;border-radius:12px;padding:13px;cursor:pointer;border:1.5px solid transparent}
+.card:active{border-color:#c5d5f0}
+.clabel{font-size:11px;color:#888;margin-bottom:5px}
+.cval{font-size:22px;font-weight:600}
+.cunit{font-size:12px;color:#aaa;font-weight:400;margin-left:2px}
+.ctrend{font-size:11px;color:#4caf50;margin-top:3px}
+.ctrend.bad{color:#e53935}
+.pill{display:inline-block;font-size:10px;padding:1px 6px;border-radius:999px;margin-left:4px;font-weight:500}
+.pill.ok{background:#e8f5e9;color:#388e3c}
+.pill.warn{background:#fff3e0;color:#f57c00}
+.pill.danger{background:#ffebee;color:#c62828}
+.recbtn{display:flex;align-items:center;gap:8px;width:100%;padding:12px 14px;background:#f8f9ff;border:1.5px solid #e0e8ff;border-radius:12px;cursor:pointer;color:#1976d2;font-size:14px;margin-bottom:10px;font-family:inherit}
+.stitle{font-size:12px;font-weight:600;color:#aaa;margin:14px 0 7px;letter-spacing:.5px}
+.hrow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:13px}
+.hrow:last-child{border:none}
+.hrow.editable{cursor:pointer;border-radius:8px;padding:8px 6px;margin:0 -6px}
+.hrow.editable:active{background:#f5f7fb}
+.hrow-right{display:flex;align-items:center;gap:8px}
+.hdel{font-size:14px;background:none;border:none;cursor:pointer;color:#ddd;padding:4px 2px;line-height:1;flex-shrink:0}
+.hdel:active{color:#e53935}
+.hdate{color:#aaa}
+.nodata{color:#ccc;font-size:13px;text-align:center;padding:20px 0}
+/* グラフ */
+.chart-wrap{background:#f8f9ff;border-radius:14px;padding:14px 10px 8px;margin-bottom:10px;overflow:hidden;border:1px solid #eef0ff}
+.rbar{display:flex;gap:6px;margin-bottom:10px}
+.rbtn{flex:1;padding:7px 0;border-radius:10px;border:1.5px solid #e4e6ec;background:#fff;cursor:pointer;font-size:12.5px;color:#888;font-family:inherit;font-weight:500;transition:all .15s}
+.rbtn.active{background:#1976d2;color:#fff;border-color:#1976d2}
+.goalbar{height:5px;background:#e0e0e0;border-radius:999px;margin-top:5px;overflow:hidden}
+.goalfill{height:100%;background:#4caf50;border-radius:999px}
+.overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:100}
+.modal{background:#fff;border-radius:24px 24px 0 0;padding:20px 20px 36px;width:100%;max-width:600px}
+.mhandle{width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 16px}
+.modal h3{font-size:16px;font-weight:600;margin-bottom:14px}
+.modal label{font-size:13px;color:#888;display:block;margin:12px 0 4px}
+.modal input,.modal select{width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:10px;font-size:15px;font-family:inherit;outline:none;background:#fafafa}
+.mbtns{display:flex;gap:10px;margin-top:16px}
+.mbtns button{flex:1;padding:12px;border-radius:12px;font-size:15px;cursor:pointer;font-family:inherit;font-weight:500;border:none}
+.bcnl{background:#f0f0f0;color:#666}
+.bsave{background:#1976d2;color:#fff}
+.bdel{width:100%;padding:11px;border-radius:12px;font-size:14px;cursor:pointer;background:#ffebee;color:#c62828;border:none;margin-top:8px;font-family:inherit}
+.spin{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;gap:12px;color:#aaa;font-size:14px}
+.spinner{width:26px;height:26px;border:3px solid #e0e0e0;border-top-color:#1976d2;border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="logo">🏥</div>
+    <h1>家族の健康手帳</h1>
+    <span class="sync" id="syncEl">✓ 同期済み</span>
+  </div>
+  <div class="section">
+    <div class="mbar" id="mbar"></div>
+    <div class="addform" id="addform">
+      <input id="newname" placeholder="名前を入力" maxlength="8">
+      <button class="abtn" id="addconfirm">追加</button>
+      <button class="xbtn" id="addcancel">×</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" id="tab-vital"><span class="ti">💉</span>バイタル</button>
+    <button class="tab" id="tab-exercise"><span class="ti">🏃</span>運動</button>
+    <button class="tab" id="tab-steps"><span class="ti">👟</span>歩数</button>
+    <button class="tab" id="tab-medicine"><span class="ti">💊</span>服薬</button>
+    <button class="tab" id="tab-temp"><span class="ti">🌡️</span>体温</button>
+    <button class="tab" id="tab-weight"><span class="ti">🏋️</span>体重</button>
+  </div>
+  <div class="content" id="content">
+    <div class="spin"><div class="spinner"></div>読み込み中...</div>
+  </div>
+</div>
+<div id="modal"></div>
+
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyCq6NPue1EPOpJjd3_jOiFNlB_kzFxtPLk",
+  authDomain: "family-health-16818.firebaseapp.com",
+  projectId: "family-health-16818",
+  storageBucket: "family-health-16818.firebasestorage.app",
+  messagingSenderId: "321561504343",
+  appId: "1:321561504343:web:84c6099b02017a5a1f9112"
+});
+const db = firebase.firestore();
+
+let members = [], cur = '', tab = 'vital';
+let ranges = { vital:'month', exercise:'month', steps:'month', medicine:'month', temp:'month', weight:'month' };
+
+function today() { return new Date().toLocaleDateString('ja-JP',{month:'short',day:'numeric'}); }
+function syncEl(s) { const el=document.getElementById('syncEl'); if(el) el.textContent=s==='ok'?'✓ 同期済み':s==='syncing'?'⟳ 同期中':'✗ エラー'; }
+
+// ---- 日付ユーティリティ ----
+// <input type="date"> の値(YYYY-MM-DD)から表示用文字列とtsを作る
+function dateInputToday() {
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function formatDateJp(ymd) {
+  const [y,m,d]=ymd.split('-').map(Number);
+  return m+'月'+d+'日';
+}
+function dateInputToTs(ymd, timeStr) {
+  const [y,m,d]=ymd.split('-').map(Number);
+  if(timeStr){
+    const [hh,mm]=timeStr.split(':').map(Number);
+    return new Date(y,m-1,d,hh,mm).getTime();
+  }
+  return new Date(y,m-1,d).getTime();
+}
+// 既存recordのdate文字列("6月22日")をinput type="date"の値に変換（年は今年と仮定）
+function recDateToInput(rec) {
+  if(rec.dateYmd) return rec.dateYmd;
+  if(rec.ts){
+    const d=new Date(rec.ts);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  return dateInputToday();
+}
+function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+// ---- 期間フィルタ ----
+// レコードは保存時に ts（UNIXタイムスタンプ）を持つ。旧データ（ts無し）は全期間扱いで含める。
+function filterByRange(arr, range) {
+  if(range==='all' || !arr.length) return arr;
+  const now = Date.now();
+  const spanMs = range==='week' ? 7*24*60*60*1000 : 30*24*60*60*1000;
+  const cutoff = now - spanMs;
+  return arr.filter(r => r.ts===undefined || r.ts>=cutoff);
+}
+function rangeBar(type) {
+  const cur=ranges[type];
+  const opts=[['week','週'],['month','月'],['all','全期間']];
+  return '<div class="rbar">'+opts.map(([k,label])=>
+    '<button class="rbtn'+(cur===k?' active':'')+'" data-range="'+k+'" data-rtype="'+type+'">'+label+'</button>'
+  ).join('')+'</div>';
+}
+function bindRangeBar() {
+  document.querySelectorAll('.rbtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const t=btn.getAttribute('data-rtype'), r=btn.getAttribute('data-range');
+      ranges[t]=r; renderContent();
+    });
+  });
+}
+
+async function getMembers() {
+  const snap = await db.collection('health').doc('_members_').get();
+  if(snap.exists) return snap.data().list||[];
+  const def=['お父さん','お母さん','子供'];
+  await db.collection('health').doc('_members_').set({list:def});
+  return def;
+}
+async function saveMembers() { await db.collection('health').doc('_members_').set({list:members}); }
+async function getData(name,type) {
+  const snap = await db.collection('health').doc(name+'_'+type).get();
+  const records = snap.exists?(snap.data().records||[]):[];
+  // ts（保存時刻ベースの日時）がある記録は日付順にソート。ts無し（古いデータ）は元の順序を維持して先頭に残す。
+  records.sort((a,b)=>(a.ts||0)-(b.ts||0));
+  return records;
+}
+async function saveData(name,type,records) {
+  syncEl('syncing');
+  await db.collection('health').doc(name+'_'+type).set({records});
+  syncEl('ok');
+}
+
+function pill(type,val) {
+  if(type==='bp'){const v=parseInt(val);return v<120?'<span class="pill ok">正常</span>':v<130?'<span class="pill warn">やや高め</span>':'<span class="pill danger">要注意</span>';}
+  if(type==='temp'){const v=parseFloat(val);return v<37.5?'<span class="pill ok">平熱</span>':v<38.5?'<span class="pill warn">微熱</span>':'<span class="pill danger">発熱</span>';}
+  return '';
+}
+
+// 編集可能な履歴行（クリックで編集モーダル、🗑タップで直接削除確認）
+function hrowEditable(type, id, dateLabel, valueHtml) {
+  return '<div class="hrow editable" data-rid="'+id+'" data-rtype="'+type+'">'
+    +'<span class="hdate">'+dateLabel+'</span>'
+    +'<span class="hrow-right"><span class="hval">'+valueHtml+'</span>'
+    +'<button class="hdel" data-rid="'+id+'" data-rtype="'+type+'" aria-label="削除">🗑</button></span>'
+    +'</div>';
+}
+function bindHrows() {
+  document.querySelectorAll('.hrow.editable').forEach(el=>{
+    el.addEventListener('click', ()=>openRec(el.getAttribute('data-rtype'), el.getAttribute('data-rid')));
+  });
+  document.querySelectorAll('.hdel').forEach(btn=>{
+    btn.addEventListener('click', ev=>{
+      ev.stopPropagation();
+      confirmDelRec(btn.getAttribute('data-rtype'), btn.getAttribute('data-rid'));
+    });
+  });
+}
+
+// ---- グラフ描画 ----
+let chartGradId = 0;
+function makeChart(arr, field, opts) {
+  // opts: { color, refLine, refVal, refColor, yLabel, dateField, maxPoints }
+  opts = opts||{};
+  const color = opts.color||'#1976d2';
+  const maxPoints = opts.maxPoints||30;
+  const n = Math.min(arr.length, maxPoints);
+  if(n < 1) return '';
+  const data = arr.slice(-n);
+  const vals = data.map(r=>parseFloat(r[field]));
+  const dates = data.map(r=>r[opts.dateField||'date']||'');
+  const gid = 'cg'+(chartGradId++);
+
+  const W=520, H=170, PL=38, PR=14, PT=18, PB=30;
+  const gW=W-PL-PR, gH=H-PT-PB;
+
+  let mn=Math.min(...vals), mx=Math.max(...vals);
+  if(opts.refLine){ mn=Math.min(mn, opts.refVal-0.5); mx=Math.max(mx, opts.refVal+0.5); }
+  const pad=(mx-mn)*0.18||0.5;
+  mn=mn-pad; mx=mx+pad;
+  const rng=mx-mn;
+
+  function xp(i){ return PL + i*(gW/(Math.max(data.length-1,1))); }
+  function yp(v){ return PT + gH - (v-mn)/rng*gH; }
+
+  // Y軸目盛り
+  const yStep = rng<=2?0.5:rng<=5?1:rng<=10?2:rng<=50?10:rng<=200?50:100;
+  const yStart = Math.ceil(mn/yStep)*yStep;
+  let yTicks=[];
+  for(let v=yStart;v<=mx;v+=yStep) yTicks.push(parseFloat(v.toFixed(2)));
+
+  // X軸ラベル（間引き）
+  const maxLabels=5;
+  const step=Math.ceil(data.length/maxLabels);
+  const showDots = data.length<=21;
+  const showValLabels = data.length<=7;
+
+  let svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="overflow:visible;display:block">';
+  svg+='<defs><linearGradient id="'+gid+'" x1="0" y1="0" x2="0" y2="1">'
+     +'<stop offset="0%" stop-color="'+color+'" stop-opacity="0.22"/>'
+     +'<stop offset="100%" stop-color="'+color+'" stop-opacity="0"/></linearGradient></defs>';
+
+  // グリッド & Y軸
+  yTicks.forEach(v=>{
+    const y=yp(v);
+    svg+='<line x1="'+PL+'" y1="'+y+'" x2="'+(W-PR)+'" y2="'+y+'" stroke="#eef0f4" stroke-width="1"/>';
+    svg+='<text x="'+(PL-6)+'" y="'+(y+3)+'" text-anchor="end" font-size="9.5" fill="#b3b8c2">'+v+'</text>';
+  });
+
+  // 基準ライン（体温37.5など）
+  if(opts.refLine){
+    const ry=yp(opts.refVal);
+    svg+='<line x1="'+PL+'" y1="'+ry+'" x2="'+(W-PR)+'" y2="'+ry+'" stroke="'+(opts.refColor||'#e53935')+'" stroke-width="1.5" stroke-dasharray="4,3"/>';
+    svg+='<text x="'+(W-PR+2)+'" y="'+(ry+4)+'" font-size="9.5" fill="'+(opts.refColor||'#e53935')+'" font-weight="600">'+opts.refVal+'</text>';
+  }
+
+  // 塗りエリア
+  if(data.length>1){
+    const pts=data.map((_,i)=>xp(i)+','+yp(vals[i])).join(' ');
+    const areaPts = (PL)+','+(H-PB)+' '+pts+' '+(xp(data.length-1))+','+(H-PB);
+    svg+='<polygon points="'+areaPts+'" fill="url(#'+gid+')"/>';
+    svg+='<polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+  }
+
+  // ドット & 値ラベル
+  data.forEach((r,i)=>{
+    const x=xp(i), y=yp(vals[i]);
+    if(showDots){
+      svg+='<circle cx="'+x+'" cy="'+y+'" r="3.5" fill="#fff" stroke="'+color+'" stroke-width="2.2"/>';
+    } else if(i===data.length-1){
+      svg+='<circle cx="'+x+'" cy="'+y+'" r="4" fill="#fff" stroke="'+color+'" stroke-width="2.5"/>';
+    }
+    if(showValLabels){
+      svg+='<text x="'+x+'" y="'+(y-9)+'" text-anchor="middle" font-size="10" fill="'+color+'" font-weight="700">'+vals[i]+'</text>';
+    }
+    // X軸日付
+    if(i%step===0||i===data.length-1){
+      const lbl=dates[i].replace('月','\/').replace('日','');
+      svg+='<text x="'+x+'" y="'+(H-4)+'" text-anchor="middle" font-size="9.5" fill="#b3b8c2">'+lbl+'</text>';
+    }
+  });
+
+  // 軸線
+  svg+='<line x1="'+PL+'" y1="'+PT+'" x2="'+PL+'" y2="'+(H-PB)+'" stroke="#dde1e8" stroke-width="1"/>';
+  svg+='<line x1="'+PL+'" y1="'+(H-PB)+'" x2="'+(W-PR)+'" y2="'+(H-PB)+'" stroke="#dde1e8" stroke-width="1"/>';
+
+  svg+='</svg>';
+  return '<div class="chart-wrap">'+svg+'</div>';
+}
+
+function makeDualChart(arr, field1, field2, label1, label2, color1, color2) {
+  const n=Math.min(arr.length,30);
+  if(n<1) return '';
+  const data=arr.slice(-n);
+  const v1=data.map(r=>parseFloat(r[field1]));
+  const v2=data.map(r=>parseFloat(r[field2]));
+  const dates=data.map(r=>r.date||'');
+
+  const W=520,H=170,PL=38,PR=14,PT=22,PB=30;
+  const gW=W-PL-PR,gH=H-PT-PB;
+
+  const allV=[...v1,...v2];
+  let mn=Math.min(...allV),mx=Math.max(...allV);
+  const pad=(mx-mn)*0.18||5;
+  mn=mn-pad; mx=mx+pad;
+  const rng=mx-mn;
+
+  function xp(i){ return PL+i*(gW/(Math.max(data.length-1,1))); }
+  function yp(v){ return PT+gH-(v-mn)/rng*gH; }
+
+  const yStep=rng<=20?5:rng<=60?10:20;
+  const yStart=Math.ceil(mn/yStep)*yStep;
+  let yTicks=[];
+  for(let v=yStart;v<=mx;v+=yStep) yTicks.push(Math.round(v));
+
+  const maxLabels=5, step=Math.ceil(data.length/maxLabels);
+  const showDots = data.length<=21;
+  let svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="overflow:visible;display:block">';
+
+  yTicks.forEach(v=>{
+    const y=yp(v);
+    svg+='<line x1="'+PL+'" y1="'+y+'" x2="'+(W-PR)+'" y2="'+y+'" stroke="#eef0f4" stroke-width="1"/>';
+    svg+='<text x="'+(PL-6)+'" y="'+(y+3)+'" text-anchor="end" font-size="9.5" fill="#b3b8c2">'+v+'</text>';
+  });
+
+  [[v1,color1,label1],[v2,color2,label2]].forEach(([vals,color,lbl])=>{
+    if(data.length>1){
+      const pts=data.map((_,i)=>xp(i)+','+yp(vals[i])).join(' ');
+      svg+='<polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+    }
+    data.forEach((_,i)=>{
+      const x=xp(i),y=yp(vals[i]);
+      if(showDots||i===data.length-1){
+        svg+='<circle cx="'+x+'" cy="'+y+'" r="3.2" fill="#fff" stroke="'+color+'" stroke-width="2.2"/>';
+      }
+    });
+  });
+
+  // 凡例
+  svg+='<rect x="'+PL+'" y="2" width="9" height="9" rx="2" fill="'+color1+'"/>';
+  svg+='<text x="'+(PL+13)+'" y="10.5" font-size="10" fill="#666" font-weight="500">'+label1+'</text>';
+  svg+='<rect x="'+(PL+58)+'" y="2" width="9" height="9" rx="2" fill="'+color2+'"/>';
+  svg+='<text x="'+(PL+71)+'" y="10.5" font-size="10" fill="#666" font-weight="500">'+label2+'</text>';
+
+  // X軸
+  data.forEach((_,i)=>{
+    if(i%step===0||i===data.length-1){
+      const lbl=dates[i].replace('月','\/').replace('日','');
+      svg+='<text x="'+xp(i)+'" y="'+(H-4)+'" text-anchor="middle" font-size="9.5" fill="#b3b8c2">'+lbl+'</text>';
+    }
+  });
+  svg+='<line x1="'+PL+'" y1="'+PT+'" x2="'+PL+'" y2="'+(H-PB)+'" stroke="#dde1e8" stroke-width="1"/>';
+  svg+='<line x1="'+PL+'" y1="'+(H-PB)+'" x2="'+(W-PR)+'" y2="'+(H-PB)+'" stroke="#dde1e8" stroke-width="1"/>';
+  svg+='</svg>';
+  return '<div class="chart-wrap">'+svg+'</div>';
+}
+
+// ---- メンバーバー ----
+function renderMbar() {
+  const bar=document.getElementById('mbar');
+  bar.innerHTML='';
+  members.forEach(m=>{
+    const w=document.createElement('div'); w.className='mwrap';
+    const b=document.createElement('button');
+    b.className='mbtn'+(m===cur?' active':'');
+    b.textContent=m;
+    b.addEventListener('click',()=>{cur=m;renderMbar();renderContent();});
+    const e=document.createElement('button');
+    e.className='edbtn'; e.textContent='✏️';
+    e.addEventListener('click',ev=>{ev.stopPropagation();openEdit(m);});
+    w.appendChild(b); w.appendChild(e); bar.appendChild(w);
+  });
+  const a=document.createElement('button');
+  a.className='addbtn'; a.textContent='＋ 追加';
+  a.addEventListener('click',()=>{
+    const f=document.getElementById('addform');
+    f.style.display=f.style.display==='flex'?'none':'flex';
+    if(f.style.display==='flex') document.getElementById('newname').focus();
+  });
+  bar.appendChild(a);
+}
+
+// ---- コンテンツ ----
+async function renderContent() {
+  const c=document.getElementById('content');
+  c.innerHTML='<div class="spin"><div class="spinner"></div>読み込み中...</div>';
+  if(!cur){c.innerHTML='<div class="nodata">メンバーを追加してください</div>';return;}
+
+  if(tab==='vital'){
+    const [bp,bs]=await Promise.all([getData(cur,'bp'),getData(cur,'bs')]);
+    const lb=bp[bp.length-1],ls=bs[bs.length-1];
+    const bpFiltered=filterByRange(bp, ranges.vital);
+    const bsFiltered=filterByRange(bs, ranges.vital);
+    c.innerHTML=
+      '<div class="cards">'
+      +'<div class="card" id="openBp"><div class="clabel">💉 血圧（最高）</div><div class="cval">'+(lb?lb.sys:'--')+'<span class="cunit">mmHg</span>'+(lb?pill('bp',lb.sys):'')+'</div><div class="ctrend">'+(lb?lb.dia+'/'+lb.sys+' '+lb.date:'タップして記録')+'</div></div>'
+      +'<div class="card" id="openBs"><div class="clabel">🩸 血糖値</div><div class="cval">'+(ls?ls.val:'--')+'<span class="cunit">mg/dL</span></div><div class="ctrend">'+(ls?ls.timing+' '+ls.date:'タップして記録')+'</div></div>'
+      +'</div>'
+      +((bp.length>=1||bs.length>=1)?rangeBar('vital'):'')
+      +'<div class="stitle">血圧の変化</div>'
+      +(bpFiltered.length>=1?makeDualChart(bpFiltered,'sys','dia','最高','最低','#e53935','#1976d2'):(bp.length>=1?'<div class="nodata">この期間の記録がありません</div>':''))
+      +'<div class="stitle">血糖値の変化</div>'
+      +(bsFiltered.length>=1?makeChart(bsFiltered,'val',{color:'#fb8c00',dateField:'date'}):(bs.length>=1?'<div class="nodata">この期間の記録がありません</div>':''))
+      +'<div class="stitle">最近の記録（血圧）</div>'
+      +(bp.slice(-8).reverse().map(r=>hrowEditable('bp', r.id, r.date, r.dia+'/'+r.sys+' mmHg '+pill('bp',r.sys))).join('')||'<div class="nodata">まだ記録がありません</div>')
+      +'<div class="stitle">最近の記録（血糖値）</div>'
+      +(bs.slice(-8).reverse().map(r=>hrowEditable('bs', r.id, r.date, r.val+' mg/dL '+(r.timing||''))).join('')||'<div class="nodata">まだ記録がありません</div>');
+    document.getElementById('openBp').addEventListener('click',()=>openRec('bp'));
+    document.getElementById('openBs').addEventListener('click',()=>openRec('bs'));
+    bindRangeBar();
+    bindHrows();
+
+  } else if(tab==='exercise'){
+    const ex=await getData(cur,'exercise');
+    const last=ex[ex.length-1];
+    c.innerHTML=
+      '<button class="recbtn" id="openEx">🏃 運動を記録する</button>'
+      +'<div class="cards" style="grid-template-columns:1fr">'
+      +'<div class="card" id="openEx2"><div class="clabel">🔥 直近の運動</div><div class="cval">'+(last?last.min:'--')+'<span class="cunit">分</span></div><div class="ctrend">'+(last?last.type+' '+last.date:'タップして記録')+'</div></div>'
+      +'</div>'
+      +'<div class="stitle">最近の運動</div>'
+      +(ex.slice(-10).reverse().map(e=>hrowEditable('exercise', e.id, e.date+(e.time?' '+e.time:''), e.type+' '+e.min+'分')).join('')||'<div class="nodata">まだ記録がありません</div>');
+    document.getElementById('openEx').addEventListener('click',()=>openRec('exercise'));
+    document.getElementById('openEx2').addEventListener('click',()=>openRec('exercise'));
+    bindHrows();
+
+  } else if(tab==='steps'){
+    const st=await getData(cur,'steps');
+    const total=st.filter(s=>s.date===today()).reduce((s,e)=>s+parseInt(e.steps||0),0);
+    const pct=Math.min(100,Math.round(total/8000*100));
+    const stFiltered=filterByRange(st, ranges.steps);
+    const dayMap={};
+    stFiltered.forEach(s=>{if(s.date)dayMap[s.date]=(dayMap[s.date]||0)+parseInt(s.steps||0);});
+    const stepArr=Object.entries(dayMap).map(([date,steps])=>({date,steps}));
+    c.innerHTML=
+      '<div class="cards" style="grid-template-columns:1fr">'
+      +'<div class="card" id="openSteps"><div class="clabel">👟 今日の歩数</div><div class="cval">'+total.toLocaleString()+'<span class="cunit">歩</span></div><div class="goalbar"><div class="goalfill" style="width:'+pct+'%"></div></div><div class="ctrend'+(total>=8000?'':' bad')+'" style="margin-top:4px">'+(total>=8000?'🎉 目標達成！':'目標8,000歩 ('+pct+'%)')+'</div></div>'
+      +'</div>'
+      +(st.length>=1?rangeBar('steps'):'')
+      +(stepArr.length>=1?makeChart(stepArr,'steps',{color:'#43a047',yLabel:'歩'}):(st.length>=1?'<div class="nodata">この期間の記録がありません</div>':''))
+      +'<div class="stitle">最近の歩数</div>'
+      +(st.slice(-10).reverse().map(s=>hrowEditable('steps', s.id, s.date, parseInt(s.steps||0).toLocaleString()+' 歩')).join('')||'<div class="nodata">まだ記録がありません</div>');
+    document.getElementById('openSteps').addEventListener('click',()=>openRec('steps'));
+    bindRangeBar();
+    bindHrows();
+
+  } else if(tab==='medicine'){
+    const med=await getData(cur,'medicine');
+    c.innerHTML='<button class="recbtn" id="openMed">💊 服薬を記録する</button><div class="stitle">服薬記録</div>'
+      +(med.slice(-15).reverse().map(m=>hrowEditable('medicine', m.id, m.date+' '+m.time, m.name+' '+m.dose)).join('')||'<div class="nodata">まだ記録がありません</div>');
+    document.getElementById('openMed').addEventListener('click',()=>openRec('medicine'));
+    bindHrows();
+
+  } else if(tab==='temp'){
+    const temp=await getData(cur,'temp');
+    const last=temp[temp.length-1];
+    const tempFiltered=filterByRange(temp, ranges.temp);
+    c.innerHTML=
+      '<div class="cards" style="grid-template-columns:1fr">'
+      +'<div class="card" id="openTemp"><div class="clabel">🌡️ 最新の体温</div><div class="cval">'+(last?last.val:'--')+'<span class="cunit">°C</span>'+(last?pill('temp',last.val):'')+'</div><div class="ctrend">'+(last?last.time+' '+last.date:'タップして記録')+'</div></div>'
+      +'</div>'
+      +(temp.length>=1?rangeBar('temp'):'')
+      +(tempFiltered.length>=1?makeChart(tempFiltered,'val',{color:'#e53935',dateField:'date'}):(temp.length>=1?'<div class="nodata">この期間の記録がありません</div>':''))
+      +'<div class="stitle">最近の記録</div>'
+      +(temp.slice(-10).reverse().map(r=>hrowEditable('temp', r.id, r.date+' '+r.time, r.val+'°C '+pill('temp',r.val))).join('')||'<div class="nodata">まだ記録がありません</div>');
+    document.getElementById('openTemp').addEventListener('click',()=>openRec('temp'));
+    bindRangeBar();
+    bindHrows();
+
+  } else if(tab==='weight'){
+    const wt=await getData(cur,'weight');
+    const last=wt[wt.length-1];
+    const wtFiltered=filterByRange(wt, ranges.weight);
+    c.innerHTML=
+      '<div class="cards" style="grid-template-columns:1fr">'
+      +'<div class="card" id="openWeight"><div class="clabel">🏋️ 最新の体重</div><div class="cval">'+(last?last.val:'--')+'<span class="cunit">kg</span></div><div class="ctrend">'+(last?(last.time?last.time+' ':'')+last.date:'タップして記録')+'</div></div>'
+      +'</div>'
+      +(wt.length>=1?rangeBar('weight'):'')
+      +(wtFiltered.length>=1?makeChart(wtFiltered,'val',{color:'#7b5fc7',dateField:'date'}):(wt.length>=1?'<div class="nodata">この期間の記録がありません</div>':''))
+      +'<div class="stitle">最近の記録</div>'
+      +(wt.slice(-10).reverse().map(r=>hrowEditable('weight', r.id, r.date+(r.time?' '+r.time:''), r.val+' kg')).join('')||'<div class="nodata">まだ記録がありません</div>');
+    document.getElementById('openWeight').addEventListener('click',()=>openRec('weight'));
+    bindRangeBar();
+    bindHrows();
+  }
+}
+
+// タブ
+['vital','exercise','steps','medicine','temp','weight'].forEach(t=>{
+  document.getElementById('tab-'+t).addEventListener('click',function(){
+    document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
+    this.classList.add('active');
+    tab=t; renderContent();
+  });
+});
+
+// メンバー追加
+document.getElementById('addconfirm').addEventListener('click',async()=>{
+  const n=document.getElementById('newname').value.trim();
+  if(!n)return;
+  if(members.includes(n)){alert('その名前はすでにあります');return;}
+  members.push(n); cur=n;
+  document.getElementById('newname').value='';
+  document.getElementById('addform').style.display='none';
+  await saveMembers(); renderMbar(); renderContent();
+});
+document.getElementById('addcancel').addEventListener('click',()=>{
+  document.getElementById('addform').style.display='none';
+});
+
+// モーダル
+function showModal(html){
+  const m=document.getElementById('modal');
+  m.innerHTML='<div class="overlay"><div class="modal"><div class="mhandle"></div>'+html+'</div></div>';
+  m.querySelector('.overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+}
+function closeModal(){document.getElementById('modal').innerHTML='';}
+
+async function openRec(type, recId){
+  const isEdit = !!recId;
+  let rec = null;
+  if(isEdit){
+    const list = await getData(cur, type);
+    rec = list.find(r=>r.id===recId);
+    if(!rec){closeModal();return;}
+  }
+  const nowTime = new Date().toTimeString().slice(0,5);
+  const dVal = isEdit ? recDateToInput(rec) : dateInputToday();
+  const tVal = isEdit ? (rec.time||nowTime) : nowTime;
+  const titlePrefix = isEdit ? '編集' : '記録';
+  let body='';
+  if(type==='bp') body='<h3>💉 血圧を'+titlePrefix+'</h3>'
+    +'<label>日付</label><input type="date" id="fdate" value="'+dVal+'">'
+    +'<label>最低血圧（下）mmHg</label><input type="number" id="f1" placeholder="75" inputmode="numeric" value="'+(isEdit?rec.dia:'')+'">'
+    +'<label>最高血圧（上）mmHg</label><input type="number" id="f2" placeholder="120" inputmode="numeric" value="'+(isEdit?rec.sys:'')+'">'
+    +'<div class="mbtns"><button class="bcnl" id="mc">キャンセル</button><button class="bsave" id="ms">保存</button></div>';
+  else if(type==='bs') body='<h3>🩸 血糖値を'+titlePrefix+'</h3>'
+    +'<label>日付</label><input type="date" id="fdate" value="'+dVal+'">'
+    +'<label>血糖値（mg/dL）</label><input type="number" id="f1" placeholder="100" inputmode="numeric" value="'+(isEdit?rec.val:'')+'">'
+    +'<label>タイミング</label><select id="f2">'+['食前','食後2時間','空腹時','就寝前'].map(o=>'<option'+(isEdit&&rec.timing===o?' selected':'')+'>'+o+'</option>').join('')+'</select>'
+    +'<div class="mbtns"><button class="bcnl" id="mc">キャンセル</button><button class="bsave" id="ms">保存</button></div>';
+  else if(type==='exercise') body='<h3>🏃 運動を'+titlePrefix+'</h3>'
+    +'<label>日付</label><input type="date" id="fdate" value="'+dVal+'">'
+    +'<label>種類</label><input type="text" id="f1" placeholder="例：ウォーキング" list="exTypes" value="'+(isEdit?rec.type:'')+'">'
+    +'<datalist id="exTypes">'+['ウォーキング','ランニング','サイクリング','筋トレ','水泳','ストレッチ','ヨガ','テニス','ゴルフ'].map(o=>'<option value="'+o+'">').join('')+'</datalist>'
+    +'<label>時間（分）</label><input type="number" id="f2" placeholder="30" inputmode="numeric" value="'+(isEdit?rec.min:'')+'">'
+    +'<label>記録時刻</label><input type="time" id="f3" value="'+tVal+'">'
+    +'<div class="mbtns"><button class="bcnl" id="mc">キャンセル</button><button class="bsave" id="ms">保存</button></div>';
+  else if(type==='steps') body='<h3>👟 歩数を'+titlePrefix+'</h3>'
+    +'<label>日付</label><input type="date" id="fdate" value="'+dVal+'">'
+    +'<label>歩数</label><input type="number" id="f1" placeholder="5000" inputmode="numeric" value="'+(isEdit?rec.steps:'')+'">'
+    +'<div class="mbtns"><button class="bcnl" id="mc">キャンセル</button><button class="bsave" id="ms">保存</button></div>';
+  else if(type==='medicine') body='<h3>💊 服薬を'+titlePrefix+'</h3>'
+    +'<label>日付</label><input type="date" id="fdate" value="'+dVal+'">'
+    +'<label>薬の名前</label><input type="text" id="f1" placeholder="例：血圧の薬" value="'+(isEdit?rec.name:'')+'">'
+    +'<label>用量</label><input type="text" id="f2" placeholder="例：1錠" value="'+(isEdit?rec.dose:'')+'">'
+    +'<label>時間</label><input type="time" id="f3" value="'+tVal+'">'
+    +'<div class="mbtns"><button class="bcnl" id="mc">キャンセル</button><button class="bsave" id="ms">保存</button></div>';
+  else if(type==='temp') body='<h3>🌡️ 体温を'+titlePrefix+'</h3>'
+    +'<label>日付</label><input type="date" id="fdate" value="'+dVal+'">'
+    +'<label>体温（°C）</label><input type="number" id="f1" step="0.1" placeholder="36.5" inputmode="decimal" value="'+(isEdit?rec.val:'')+'">'
+    +'<label>時間</label><input type="time" id="f2" value="'+tVal+'">'
+    +'<div class="mbtns"><button class="bcnl" id="mc">キャンセル</button><button class="bsave" id="ms">保存</button></div>';
+  else if(type==='weight') body='<h3>🏋️ 体重を'+titlePrefix+'</h3>'
+    +'<label>日付</label><input type="date" id="fdate" value="'+dVal+'">'
+    +'<label>体重（kg）</label><input type="number" id="f1" step="0.1" placeholder="60.0" inputmode="decimal" value="'+(isEdit?rec.val:'')+'">'
+    +'<label>時間</label><input type="time" id="f2" value="'+tVal+'">'
+    +'<div class="mbtns"><button class="bcnl" id="mc">キャンセル</button><button class="bsave" id="ms">保存</button></div>';
+  if(isEdit) body += '<button class="bdel" id="mdelrec">🗑 この記録を削除</button>';
+  showModal(body);
+  document.getElementById('mc').addEventListener('click',closeModal);
+  document.getElementById('ms').addEventListener('click',()=>saveRec(type, isEdit?recId:null));
+  if(isEdit) document.getElementById('mdelrec').addEventListener('click',()=>confirmDelRec(type, recId));
+}
+
+async function saveRec(type, editId){
+  const dymd = document.getElementById('fdate').value;
+  if(!dymd) return alert('日付を入力してください');
+  const dateLabel = formatDateJp(dymd);
+  let rec={date:dateLabel, dateYmd:dymd};
+  let timeForTs = null;
+  if(type==='bp'){const v1=document.getElementById('f1').value,v2=document.getElementById('f2').value;if(!v1||!v2)return alert('値を入力してください');rec={...rec,dia:v1,sys:v2};}
+  else if(type==='bs'){const v1=document.getElementById('f1').value;if(!v1)return alert('値を入力してください');rec={...rec,val:v1,timing:document.getElementById('f2').value};}
+  else if(type==='exercise'){const v1=document.getElementById('f1').value.trim(),v2=document.getElementById('f2').value;if(!v1)return alert('種類を入力してください');if(!v2)return alert('時間を入力してください');timeForTs=document.getElementById('f3').value;rec={...rec,type:v1,min:v2,time:timeForTs};}
+  else if(type==='steps'){const v1=document.getElementById('f1').value;if(!v1)return alert('歩数を入力してください');rec={...rec,steps:v1};}
+  else if(type==='medicine'){const v1=document.getElementById('f1').value.trim();if(!v1)return alert('薬の名前を入力してください');timeForTs=document.getElementById('f3').value;rec={...rec,name:v1,dose:document.getElementById('f2').value,time:timeForTs};}
+  else if(type==='temp'){const v1=document.getElementById('f1').value;if(!v1)return alert('値を入力してください');timeForTs=document.getElementById('f2').value;rec={...rec,val:v1,time:timeForTs};}
+  else if(type==='weight'){const v1=document.getElementById('f1').value;if(!v1)return alert('値を入力してください');timeForTs=document.getElementById('f2').value;rec={...rec,val:v1,time:timeForTs};}
+  rec.ts = dateInputToTs(dymd, timeForTs);
+  closeModal();
+  const existing=await getData(cur,type);
+  if(editId){
+    const idx=existing.findIndex(r=>r.id===editId);
+    if(idx>=0){ rec.id=editId; existing[idx]=rec; }
+    else { rec.id=uid(); existing.push(rec); }
+  } else {
+    rec.id=uid();
+    existing.push(rec);
+  }
+  await saveData(cur,type,existing);
+  renderContent();
+}
+
+function confirmDelRec(type, recId){
+  showModal('<h3 style="color:#c62828">⚠️ 削除の確認</h3><p style="font-size:14px;color:#666;margin-top:8px;line-height:1.6">この記録を削除します。<br>この操作は元に戻せません。</p><div class="mbtns" style="margin-top:16px"><button class="bcnl" id="mc">戻る</button><button class="bsave" style="background:#c62828" id="ms">削除する</button></div>');
+  document.getElementById('mc').addEventListener('click',()=>openRec(type, recId));
+  document.getElementById('ms').addEventListener('click',()=>doDeleteRec(type, recId));
+}
+async function doDeleteRec(type, recId){
+  const existing=await getData(cur,type);
+  const filtered=existing.filter(r=>r.id!==recId);
+  closeModal();
+  await saveData(cur,type,filtered);
+  renderContent();
+}
+
+function openEdit(name){
+  showModal('<h3>✏️ メンバーを編集</h3><label>名前</label><input type="text" id="ename" value="'+name+'" maxlength="8"><div class="mbtns"><button class="bcnl" id="mc">キャンセル</button><button class="bsave" id="ms">保存</button></div><button class="bdel" id="mdel">🗑 このメンバーを削除</button>');
+  document.getElementById('mc').addEventListener('click',closeModal);
+  document.getElementById('ms').addEventListener('click',()=>saveEdit(name));
+  document.getElementById('mdel').addEventListener('click',()=>confirmDel(name));
+  setTimeout(()=>{const i=document.getElementById('ename');if(i){i.focus();i.select();}},50);
+}
+async function saveEdit(oldName){
+  const n=document.getElementById('ename').value.trim();
+  if(!n)return;
+  if(n===oldName){closeModal();return;}
+  if(members.includes(n))return alert('その名前はすでに使われています');
+  members[members.indexOf(oldName)]=n;
+  for(const t of ['bp','bs','exercise','steps','medicine','temp','weight']){
+    const d=await getData(oldName,t);
+    if(d.length>0){
+      await db.collection('health').doc(n+'_'+t).set({records:d});
+      await db.collection('health').doc(oldName+'_'+t).set({records:[]});
+    }
+  }
+  if(cur===oldName)cur=n;
+  await saveMembers(); closeModal(); renderMbar(); renderContent();
+}
+function confirmDel(name){
+  showModal('<h3 style="color:#c62828">⚠️ 削除の確認</h3><p style="font-size:14px;color:#666;margin-top:8px;line-height:1.6">「'+name+'」のすべての記録を削除します。<br>この操作は元に戻せません。</p><div class="mbtns" style="margin-top:16px"><button class="bcnl" id="mc">戻る</button><button class="bsave" style="background:#c62828" id="ms">削除する</button></div>');
+  document.getElementById('mc').addEventListener('click',()=>openEdit(name));
+  document.getElementById('ms').addEventListener('click',()=>doDelete(name));
+}
+async function doDelete(name){
+  members=members.filter(m=>m!==name);
+  if(cur===name)cur=members[0]||'';
+  await saveMembers(); closeModal(); renderMbar(); renderContent();
+}
+
+// 起動
+getMembers().then(list=>{
+  members=list; cur=members[0]||'';
+  renderMbar(); renderContent();
+}).catch(err=>{
+  document.getElementById('content').innerHTML='<div class="nodata" style="color:#e53935">接続エラー: '+err.message+'</div>';
+});
+</script>
+</body>
+</html>
