@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家族の健康手帳</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;background:#f5f5f0;min-height:100vh}
+.app{max-width:600px;margin:0 auto;padding:16px}
+.header{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:14px 16px;background:#fff;border-radius:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.logo{width:38px;height:38px;border-radius:50%;background:#e8f4ff;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+h1{font-size:17px;font-weight:600}
+.sync{margin-left:auto;font-size:11px;color:#4caf50}
+.section{background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.mbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.mwrap{display:flex;align-items:center}
+.mbtn{padding:7px 15px;border-radius:999px;border:1.5px solid #ddd;background:#fff;cursor:pointer;font-size:14px;color:#666;font-family:inherit}
+.mbtn.active{background:#1976d2;color:#fff;border-color:#1976d2}
+.edbtn{font-size:13px;cursor:pointer;color:#ccc;background:none;border:none;padding:2px 5px}
+.addbtn{padding:7px 13px;border-radius:999px;border:1.5px dashed #ccc;background:transparent;cursor:pointer;font-size:13px;color:#aaa;font-family:inherit}
+.addform{margin-top:10px;display:none;gap:8px;align-items:center}
+.addform input{flex:1;padding:8px 12px;border:1.5px solid #ddd;border-radius:999px;font-size:14px;font-family:inherit;outline:none}
+.addform .abtn{padding:8px 16px;border-radius:999px;background:#1976d2;border:none;color:#fff;font-size:14px;cursor:pointer;font-family:inherit}
+.addform .xbtn{background:none;border:none;font-size:22px;color:#ccc;cursor:pointer;padding:0 4px}
+.tabs{display:flex;background:#fff;border-radius:16px;overflow:hidden;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.tab{flex:1;padding:11px 4px;font-size:12px;cursor:pointer;color:#aaa;border:none;background:none;border-bottom:2.5px solid transparent;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:2px}
+.tab .ti{font-size:18px}
+.tab.active{color:#1976d2;border-bottom-color:#1976d2;background:#f0f7ff}
+.content{background:#fff;border-radius:16px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08);min-height:260px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.card{background:#f8f9ff;border-radius:12px;padding:13px;cursor:pointer;border:1.5px solid transparent}
+.card:active{border-color:#c5d5f0}
+.clabel{font-size:11px;color:#888;margin-bottom:5px}
+.cval{font-size:22px;font-weight:600}
+.cunit{font-size:12px;color:#aaa;font-weight:400;margin-left:2px}
+.ctrend{font-size:11px;color:#4caf50;margin-top:3px}
+.ctrend.bad{color:#e53935}
+.pill{display:inline-block;font-size:10px;padding:1px 6px;border-radius:999px;margin-left:4px;font-weight:500}
+.pill.ok{background:#e8f5e9;color:#388e3c}
+.pill.warn{background:#fff3e0;color:#f57c00}
+.pill.danger{background:#ffebee;color:#c62828}
+.recbtn{display:flex;align-items:center;gap:8px;width:100%;padding:12px 14px;background:#f8f9ff;border:1.5px solid #e0e8ff;border-radius:12px;cursor:pointer;color:#1976d2;font-size:14px;margin-bottom:10px;font-family:inherit}
+.stitle{font-size:12px;font-weight:600;color:#aaa;margin:14px 0 7px;letter-spacing:.5px}
+.hrow{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:13px}
+.hrow:last-child{border:none}
+.hdate{color:#aaa}
+.nodata{color:#ccc;font-size:13px;text-align:center;padding:20px 0}
+.chart{background:#f8f9ff;border-radius:12px;padding:12px;margin-bottom:8px}
+.goalbar{height:5px;background:#e0e0e0;border-radius:999px;margin-top:5px;overflow:hidden}
+.goalfill{height:100%;background:#4caf50;border-radius:999px}
+.overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:100}
+.modal{background:#fff;border-radius:24px 24px 0 0;padding:20px 20px 36px;width:100%;max-width:600px}
+.mhandle{width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 16px}
+.modal h3{font-size:16px;font-weight:600;margin-bottom:14px}
+.modal label{font-size:13px;color:#888;display:block;margin:12px 0 4px}
+.modal input,.modal select{width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:10px;font-size:15px;font-family:inherit;outline:none;background:#fafafa}
+.mbtns{display:flex;gap:10px;margin-top:16px}
+.mbtns button{flex:1;padding:12px;border-radius:12px;font-size:15px;cursor:pointer;font-family:inherit;font-weight:500;border:none}
+.bcnl{background:#f0f0f0;color:#666}
+.bsave{background:#1976d2;color:#fff}
+.bdel{width:100%;padding:11px;border-radius:12px;font-size:14px;cursor:pointer;background:#ffebee;color:#c62828;border:none;margin-top:8px;font-family:inherit}
+.spin{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;gap:12px;color:#aaa;font-size:14px}
+.spinner{width:26px;height:26px;border:3px solid #e0e0e0;border-top-color:#1976d2;border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="logo">🏥</div>
+    <h1>家族の健康手帳</h1>
+    <span class="sync" id="syncEl">✓ 同期済み</span>
+  </div>
+  <div class="section">
+    <div class="mbar" id="mbar"></div>
+    <div class="addform" id="addform">
+      <input id="newname" placeholder="名前を入力" maxlength="8">
+      <button class="abtn" id="addconfirm">追加</button>
+      <button class="xbtn" id="addcancel">×</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" id="tab-vital"><span class="ti">💉</span>バイタル</button>
+    <button class="tab" id="tab-exercise"><span class="ti">🏃</span>運動</button>
+    <button class="tab" id="tab-medicine"><span class="ti">💊</span>服薬</button>
+    <button class="tab" id="tab-temp"><span class="ti">🌡️</span>体温</button>
+  </div>
+  <div class="content" id="content">
+    <div class="spin"><div class="spinner"></div>読み込み中...</div>
+  </div>
+</div>
+<div id="modal"></div>
+
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyCq6NPue1EPOpJjd3_jOiFNlB_kzFxtPLk",
+  authDomain: "family-health-16818.firebaseapp.com",
+  projectId: "family-health-16818",
+  storageBucket: "family-health-16818.firebasestorage.app",
+  messagingSenderId: "321561504343",
+  appId: "1:321561504343:web:84c6099b02017a5a1f9112"
+});
+const db = firebase.firestore();
+
+let members = [];
+let cur = '';
+let tab = 'vital';
+
+function today() {
+  return new Date().toLocaleDateString('ja-JP',{month:'short',day:'numeric'});
+}
+function syncEl(s) {
+  const el = document.getElementById('syncEl');
+  if (el) el.textContent = s==='ok'?'✓ 同期済み':s==='syncing'?'⟳ 同期中':'✗ エラー';
+}
+async function getMembers() {
+  const snap = await db.collection('health').doc('_members_').get();
+  if (snap.exists) return snap.data().list || [];
+  const def = ['お父さん','お母さん','子供'];
+  await db.collection('health').doc('_members_').set({list:def});
+  return def;
+}
+async function saveMembers() {
+  await db.collection('health').doc('_members_').set({list:members});
+}
+async function getData(name,type) {
+  const snap = await db.collection('health').doc(name+'_'+type).get();
+  return snap.exists ? (snap.data().records||[]) : [];
+}
+async function saveData(name,type,records) {
+  syncEl('syncing');
+  await db.collection('health').doc(name+'_'+type).set({records});
+  syncEl('ok');
+}
+
+function pill(type,val) {
+  if (type==='bp'){const v=parseInt(val);return v<120?'<span class="pill ok">正常</span>':v<130?'<span class="pill warn">やや高め</span>':'<span class="pill danger">要注意</span>';}
+  if (type==='temp'){const v=parseFloat(val);return v<37.5?'<span class="pill ok">平熱</span>':v<38.5?'<span class="pill warn">微熱</span>':'<span class="pill danger">発熱</span>';}
+  return '';
+}
+
+function miniChart(arr,field) {
+  if(arr.length<2) return '';
+  const vals=arr.slice(-7).map(r=>parseFloat(r[field]));
+  const mn=Math.min(...vals),mx=Math.max(...vals),rng=mx-mn||1;
+  const W=240,H=54,p=6;
+  const pts=vals.map((v,i)=>[Math.round(p+i*(W-p*2)/(vals.length-1)),Math.round(H-p-(v-mn)/rng*(H-p*2))]);
+  return '<div class="chart"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="54" style="overflow:visible">'
+    +'<polyline points="'+pts.map(p=>p.join(',')).join(' ')+'" fill="none" stroke="#1976d2" stroke-width="2" stroke-linejoin="round"/>'
+    +pts.map(([x,y],i)=>'<circle cx="'+x+'" cy="'+y+'" r="3" fill="#fff" stroke="#1976d2" stroke-width="2"/><text x="'+x+'" y="'+(y-7)+'" text-anchor="middle" font-size="9" fill="#888">'+vals[i]+'</text>').join('')
+    +'</svg></div>';
+}
+
+function renderMbar() {
+  const bar = document.getElementById('mbar');
+  bar.innerHTML = '';
+  members.forEach(m=>{
+    const w=document.createElement('div');
+    w.className='mwrap';
+    const b=document.createElement('button');
+    b.className='mbtn'+(m===cur?' active':'');
+    b.textContent=m;
+    b.addEventListener('click',()=>{cur=m;renderMbar();renderContent();});
+    const e=document.createElement('button');
+    e.className='edbtn';
+    e.textContent='✏️';
+    e.addEventListener('click',ev=>{ev.stopPropagation();openEdit(m);});
+    w.appendChild(b);w.appendChild(e);
+    bar.appendChild(w);
+  });
+  const a=document.createElement('button');
+  a.className='addbtn';
+  a.textContent='＋ 追加';
+  a.addEventListener('click',()=>{
+    const f=document.getElementById('addform');
+    f.style.display=f.style.display==='flex'?'none':'flex';
+    if(f.style.display==='flex') document.getElementById('newname').focus();
+  });
+  bar.appendChild(a);
+}
+
+async function renderContent() {
+  const c=document.getElementById('content');
+  c.innerHTML='<div class="spin"><div class="spinner"></div>読み込み中...</div>';
+  if(!cur){c.innerHTML='<div class="nodata">メンバーを追加してください</div>';return;}
+
+  if(tab==='vital'){
+    const [bp,bs]=await Promise.all([getData(cur,'bp'),getData(cur,'bs')]);
+    const lb=bp[bp.length-1],ls=bs[bs.length-1];
+    c.innerHTML='<div class="cards">'
+      +'<div class="card" id="openBp"><div class="clabel">💉 血圧（最高）</div><div class="cval">'+(lb?lb.sys:'--')+'<span class="cunit">mmHg</span>'+(lb?pill('bp',lb.sys):'')+'</div><div class="ctrend">'+(lb?lb.dia+'/'+lb.sys+' '+lb.date:'タップして記録')+'</div></div>'
+      +'<div class="card" id="openBs"><div class="clabel">🩸 血糖値</div><div class="cval">'+(ls?ls.val:'--')+'<span class="cunit">mg/dL</span></div><div class="ctrend">'+(ls?ls.timing+' '+ls.date:'タップして記録')+'</div></div>'
+      +'</div>'+miniChart(bp,'sys')
+      +'<div class="stitle">最近の記録</div>'
+      +(bp.slice(-6).reverse().map(r=>'<div class="hrow"><span class="hdate">'+r.date+'</span><span>'+r.dia+'/'+r.sys+' mmHg</span></div>').join('')||'<div class="nodata">まだ記録がありません</div>');
+    document.getElementById('openBp').addEventListener('click',()=>openRec('bp'));
+    document.getElementById('openBs').addEventListener('click',()=>openRec('bs'));
+
+  } else if(tab==='exercise'){
+    const ex=await getData(cur,'exercise');
+    const last=ex[ex.length-1];
+    const total=ex.filter(e=>e.date===today()).reduce((s,e)=>s+parseInt(e.steps||0),0);
+    const pct=Math.min(100,Math.round(total/8000*100));
+    c.innerHTML='<div class="cards">'
+      +'<div class="card" id="openEx"><div class="clabel">👟 今日の歩数</div><div class="cval">'+total.toLocaleString()+'<span class="cunit">歩</span></div><div class="goalbar"><div class="goalfill" style="width:'+pct+'%"></div></div><div class="ctrend'+(total>=8000?'':' bad')+'" style="margin-top:4px">'+(total>=8000?'🎉 目標達成！':'目標8,000歩 ('+pct+'%)')+'</div></div>'
+      +'<div class="card" id="openEx2"><div class="clabel">🔥 運動時間</div><div class="cval">'+(last?last.min:'--')+'<span class="cunit">分</span></div><div class="ctrend">'+(last?last.type+' '+last.date:'タップして記録')+'</div></div>'
+      +'</div><div class="stitle">最近の運動</div>'
+      +(ex.slice(-6).reverse().map(e=>'<div class="hrow"><span class="hdate">'+e.date+'</span><span>'+e.type+' '+e.min+'分 / '+parseInt(e.steps||0).toLocaleString()+'歩</span></div>').join('')||'<div class="nodata">まだ記録がありません</div>');
+    document.getElementById('openEx').addEventListener('click',()=>openRec('exercise'));
+    document.getElementById('openEx2').addEventListener('click',()=>openRec('exercise'));
+
+  } else if(tab==='medicine'){
+    const med=await getData(cur,'medicine');
+    c.innerHTML='<button class="recbtn" id="openMed">💊 服薬を記録する</button><div class="stitle">服薬記録</div>'
+      +(med.slice(-10).reverse().map(m=>'<div class="hrow"><span class="hdate">'+m.date+' '+m.time+'</span><span>'+m.name+' '+m.dose+'</span></div>').join('')||'<div class="nodata">まだ記録がありません</div>');
+    document.getElementById('openMed').addEventListener('click',()=>openRec('medicine'));
+
+  } else if(tab==='temp'){
+    const temp=await getData(cur,'temp');
+    const last=temp[temp.length-1];
+    c.innerHTML='<div class="cards" style="grid-template-columns:1fr">'
+      +'<div class="card" id="openTemp"><div class="clabel">🌡️ 最新の体温</div><div class="cval">'+(last?last.val:'--')+'<span class="cunit">°C</span>'+(last?pill('temp',last.val):'')+'</div><div class="ctrend">'+(last?last.time+' '+last.date:'タップして記録')+'</div></div>'
+      +'</div>'+miniChart(temp,'val')
+      +'<div class="stitle">最近の記録</div>'
+      +(temp.slice(-8).reverse().map(r=>'<div class="hrow"><span class="hdate">'+r.date+' '+r.time+'</span><span>'+r.val+'°C '+pill('temp',r.val)+'</span></div>').join('')||'<div class="nodata">まだ記録がありません</div>');
+    document.getElementById('openTemp').addEventListener('click',()=>openRec('temp'));
+  }
+}
+
+// タブ
+['vital','exercise','medicine','temp'].forEach(t=>{
+  document.getElementById('tab-'+t).addEventListener('click',function(){
+    document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
+    this.classList.add('active');
+    tab=t;
+    renderContent();
+  });
+});
+
+// メンバー追加
+document.getElementById('addconfirm').addEventListener('click', async ()=>{
+  const n=document.getElementById('newname').value.trim();
+  if(!n) return;
+  if(members.includes(n)){alert('その名前はすでにあります');return;}
+  members.push(n);
+  cur=n;
+  document.getElementById('newname').value='';
+  document.getElementById('addform').style.display='none';
+  await saveMembers();
+  renderMbar();
+  renderContent();
+});
+document.getElementById('addcancel').addEventListener('click',()=>{
+  document.getElementById('addform').style.display='none';
+});
+
+// モーダル
+function showModal(html) {
+  let m=document.getElementById('modal');
+  m.innerHTML='<div class="overlay"><div class="modal"><div class="mhandle"></div>'+html+'</div></div>';
+  m.querySelector('.overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+}
+function closeModal(){document.getElementById('modal').innerHTML='';}
+
+function openRec(type) {
+  const t=new Date().toTimeString().slice(0,5);
+  let body='';
+  if(type==='bp') body='<h3>💉 血圧を記録</h3><label>最低血圧（下）mmHg</label><input type="number" id="f1" placeholder="75" inputmode="numeric"><label>最高血圧（上）mmHg</label><input type="number" id="f2" placeholder="120" inputmode="numeric"><div class="mbtns"><button class="bcnl" id="mc">キャンセル</button><button class="bsave" id="ms">保存</button></div>';
+  else if(type==='bs') body='<h3>🩸 血糖値を記録</h3><label>血糖値（mg/dL）</label><input type="number" id="f1" placeholder="100" inputmode="numeric"><label>タイミング</label><select id="f2"><option>食前</option><option>食後2時間</option><option>空腹時</option><option>就寝前</option></select><div class="mbtns"><button class="bcnl" id="mc">キャンセル</button><button class="bsave" id="ms">保存</button></div>';
+  else if(type==='exercise') body='<h3>🏃 運動を記録</h3><label>種類</label><select id="f1"><option>ウォーキング</option><option>ランニング</option><option>サイクリング</option><option>筋トレ</option><option>水泳</option><option>ストレッチ</option><option>その他</option></select><label>時間（分）</label><input type="number" id="f2" placeholder="30" inputmode="numeric"><label>歩数（任意）</label><input type="number" id="f3" placeholder="5000" inputmode="numeric"><div class="mbtns"><button class="bcnl" id="mc">キャンセル</button><button class="bsave" id="ms">保存</button></div>';
+  else if(type==='medicine') body='<h3>💊 服薬を記録</h3><label>薬の名前</label><input type="text" id="f1" placeholder="例：血圧の薬"><label>用量</label><input type="text" id="f2" placeholder="例：1錠"><label>時間</label><input type="time" id="f3" value="'+t+'"><div class="mbtns"><button class="bcnl" id="mc">キャンセル</button><button class="bsave" id="ms">保存</button></div>';
+  else if(type==='temp') body='<h3>🌡️ 体温を記録</h3><label>体温（°C）</label><input type="number" id="f1" step="0.1" placeholder="36.5" inputmode="decimal"><label>時間</label><input type="time" id="f2" value="'+t+'"><div class="mbtns"><button class="bcnl" id="mc">キャンセル</button><button class="bsave" id="ms">保存</button></div>';
+  showModal(body);
+  document.getElementById('mc').addEventListener('click',closeModal);
+  document.getElementById('ms').addEventListener('click',()=>saveRec(type));
+}
+
+async function saveRec(type) {
+  const now=today();
+  let rec={date:now};
+  if(type==='bp'){const v1=document.getElementById('f1').value,v2=document.getElementById('f2').value;if(!v1||!v2)return alert('値を入力してください');rec={...rec,dia:v1,sys:v2};}
+  else if(type==='bs'){const v1=document.getElementById('f1').value;if(!v1)return alert('値を入力してください');rec={...rec,val:v1,timing:document.getElementById('f2').value};}
+  else if(type==='exercise'){const v2=document.getElementById('f2').value;if(!v2)return alert('時間を入力してください');rec={...rec,type:document.getElementById('f1').value,min:v2,steps:document.getElementById('f3').value||'0'};}
+  else if(type==='medicine'){const v1=document.getElementById('f1').value.trim();if(!v1)return alert('薬の名前を入力してください');rec={...rec,name:v1,dose:document.getElementById('f2').value,time:document.getElementById('f3').value};}
+  else if(type==='temp'){const v1=document.getElementById('f1').value;if(!v1)return alert('値を入力してください');rec={...rec,val:v1,time:document.getElementById('f2').value};}
+  closeModal();
+  const existing=await getData(cur,type);
+  existing.push(rec);
+  await saveData(cur,type,existing);
+  renderContent();
+}
+
+function openEdit(name) {
+  showModal('<h3>✏️ メンバーを編集</h3><label>名前</label><input type="text" id="ename" value="'+name+'" maxlength="8"><div class="mbtns"><button class="bcnl" id="mc">キャンセル</button><button class="bsave" id="ms">保存</button></div><button class="bdel" id="mdel">🗑 このメンバーを削除</button>');
+  document.getElementById('mc').addEventListener('click',closeModal);
+  document.getElementById('ms').addEventListener('click',()=>saveEdit(name));
+  document.getElementById('mdel').addEventListener('click',()=>confirmDel(name));
+  setTimeout(()=>{const i=document.getElementById('ename');if(i){i.focus();i.select();}},50);
+}
+
+async function saveEdit(oldName) {
+  const n=document.getElementById('ename').value.trim();
+  if(!n)return;
+  if(n===oldName){closeModal();return;}
+  if(members.includes(n))return alert('その名前はすでに使われています');
+  members[members.indexOf(oldName)]=n;
+  for(const t of ['bp','bs','exercise','medicine','temp']){
+    const d=await getData(oldName,t);
+    if(d.length>0){
+      await db.collection('health').doc(n+'_'+t).set({records:d});
+      await db.collection('health').doc(oldName+'_'+t).set({records:[]});
+    }
+  }
+  if(cur===oldName)cur=n;
+  await saveMembers();
+  closeModal();
+  renderMbar();
+  renderContent();
+}
+
+function confirmDel(name) {
+  showModal('<h3 style="color:#c62828">⚠️ 削除の確認</h3><p style="font-size:14px;color:#666;margin-top:8px;line-height:1.6">「'+name+'」のすべての記録を削除します。<br>この操作は元に戻せません。</p><div class="mbtns" style="margin-top:16px"><button class="bcnl" id="mc">戻る</button><button class="bsave" style="background:#c62828" id="ms">削除する</button></div>');
+  document.getElementById('mc').addEventListener('click',()=>openEdit(name));
+  document.getElementById('ms').addEventListener('click',()=>doDelete(name));
+}
+
+async function doDelete(name) {
+  members=members.filter(m=>m!==name);
+  if(cur===name)cur=members[0]||'';
+  await saveMembers();
+  closeModal();
+  renderMbar();
+  renderContent();
+}
+
+// 起動
+getMembers().then(list=>{
+  members=list;
+  cur=members[0]||'';
+  renderMbar();
+  renderContent();
+}).catch(err=>{
+  document.getElementById('content').innerHTML='<div class="nodata" style="color:#e53935">接続エラー: '+err.message+'</div>';
+});
+</script>
+</body>
+</html>
