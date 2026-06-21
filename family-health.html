@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家族の健康手帳</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;background:#f5f5f0;color:#1a1a1a;min-height:100vh}
+.app{max-width:600px;margin:0 auto;padding:16px}
+.header{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding:16px;background:#fff;border-radius:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.logo{width:40px;height:40px;border-radius:50%;background:#e8f4ff;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.header h1{font-size:18px;font-weight:600;color:#1a1a1a}
+.header .sync{margin-left:auto;font-size:11px;color:#999;display:flex;align-items:center;gap:4px}
+.sync.ok{color:#4caf50}
+.sync.syncing{color:#ff9800}
+.member-section{background:#fff;border-radius:16px;padding:14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.member-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.member-wrap{display:flex;align-items:center;gap:2px}
+.member-btn{padding:7px 16px;border-radius:999px;border:1.5px solid #e0e0e0;background:#fff;cursor:pointer;font-size:14px;color:#666;transition:all .15s;font-family:inherit}
+.member-btn.active{background:#1976d2;color:#fff;border-color:#1976d2}
+.member-btn:hover:not(.active){background:#f0f0f0}
+.edit-icon{font-size:15px;cursor:pointer;color:#bbb;padding:3px;background:none;border:none;opacity:0;transition:opacity .15s}
+.member-wrap:hover .edit-icon{opacity:1}
+.add-member-btn{padding:7px 14px;border-radius:999px;border:1.5px dashed #ccc;background:transparent;cursor:pointer;font-size:13px;color:#999;font-family:inherit}
+.add-member-btn:hover{background:#f5f5f5}
+.add-form{display:flex;gap:8px;margin-top:10px;align-items:center}
+.add-form input{flex:1;padding:8px 12px;border:1.5px solid #e0e0e0;border-radius:999px;font-size:14px;outline:none;font-family:inherit}
+.add-form input:focus{border-color:#1976d2}
+.add-form button{padding:8px 16px;border-radius:999px;background:#1976d2;border:none;color:#fff;font-size:14px;cursor:pointer;font-family:inherit}
+.tabs{display:flex;background:#fff;border-radius:16px;overflow:hidden;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.tab{flex:1;padding:12px 4px;font-size:13px;cursor:pointer;color:#999;border:none;background:none;border-bottom:3px solid transparent;transition:all .15s;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:3px}
+.tab .tab-icon{font-size:18px}
+.tab.active{color:#1976d2;border-bottom-color:#1976d2;background:#f0f7ff}
+.content{background:#fff;border-radius:16px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08);min-height:300px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.card{background:#f8f9ff;border-radius:12px;padding:14px;cursor:pointer;transition:background .15s;border:1.5px solid transparent}
+.card:hover{background:#eef2ff;border-color:#c5d5f0}
+.card .clabel{font-size:11px;color:#888;margin-bottom:6px;display:flex;align-items:center;gap:4px}
+.card .cvalue{font-size:24px;font-weight:600;color:#1a1a1a}
+.card .cunit{font-size:12px;color:#aaa;margin-left:2px;font-weight:400}
+.card .ctrend{font-size:11px;color:#4caf50;margin-top:4px}
+.card .ctrend.bad{color:#e53935}
+.pill{display:inline-block;font-size:10px;padding:2px 7px;border-radius:999px;margin-left:5px;font-weight:500}
+.pill.ok{background:#e8f5e9;color:#388e3c}
+.pill.warn{background:#fff3e0;color:#f57c00}
+.pill.danger{background:#ffebee;color:#c62828}
+.record-btn{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;background:#f8f9ff;border:1.5px solid #e0e8ff;border-radius:12px;cursor:pointer;color:#1976d2;font-size:14px;margin-bottom:10px;transition:background .15s;font-family:inherit}
+.record-btn:hover{background:#eef2ff}
+.record-btn .rbicon{font-size:20px}
+.section-title{font-size:13px;font-weight:600;color:#888;margin:16px 0 8px;text-transform:uppercase;letter-spacing:.5px}
+.hist-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f0f0f0;font-size:13px}
+.hist-row:last-child{border:none}
+.hist-date{color:#aaa}
+.hist-val{color:#333;font-weight:500}
+.no-data{color:#bbb;font-size:13px;text-align:center;padding:24px 0}
+.chart-wrap{background:#f8f9ff;border-radius:12px;padding:12px;margin-bottom:8px}
+.goal-bar{height:6px;background:#e0e0e0;border-radius:999px;margin-top:6px;overflow:hidden}
+.goal-fill{height:100%;background:#4caf50;border-radius:999px;transition:width .3s}
+
+/* モーダル */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:100;padding:0}
+.modal{background:#fff;border-radius:24px 24px 0 0;padding:20px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:17px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.modal label{font-size:13px;color:#888;display:block;margin-bottom:4px;margin-top:12px}
+.modal input,.modal select{width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:15px;outline:none;font-family:inherit;background:#fafafa}
+.modal input:focus,.modal select:focus{border-color:#1976d2;background:#fff}
+.modal-btns{display:flex;gap:10px;margin-top:18px}
+.modal-btns button{flex:1;padding:12px;border-radius:12px;font-size:15px;cursor:pointer;font-family:inherit;font-weight:500}
+.btn-cancel{background:#f5f5f5;border:none;color:#666}
+.btn-save{background:#1976d2;border:none;color:#fff}
+.btn-danger{background:#ffebee;border:none;color:#c62828;width:100%;padding:12px;border-radius:12px;font-size:14px;cursor:pointer;margin-top:10px;font-family:inherit}
+.modal-handle{width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 16px}
+
+/* ローディング */
+.loading{display:flex;align-items:center;justify-content:center;height:200px;color:#aaa;font-size:14px;flex-direction:column;gap:12px}
+.spinner{width:28px;height:28px;border:3px solid #e0e0e0;border-top-color:#1976d2;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="app" id="root">
+  <div class="loading"><div class="spinner"></div>読み込み中...</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCq6NPue1EPOpJjd3_jOiFNlB_kzFxtPLk",
+  authDomain: "family-health-16818.firebaseapp.com",
+  projectId: "family-health-16818",
+  storageBucket: "family-health-16818.firebasestorage.app",
+  messagingSenderId: "321561504343",
+  appId: "1:321561504343:web:84c6099b02017a5a1f9112"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// ---- state ----
+let members = [];
+let currentMember = null;
+let currentTab = 'vital';
+let syncStatus = 'ok'; // ok | syncing | error
+let unsubscribes = [];
+
+// ---- Firestore helpers ----
+const membersDocRef = () => doc(db, 'health', '__members__');
+const memberDataRef = (name, tab) => doc(db, 'health', name + '_' + tab);
+
+async function loadMembers() {
+  const snap = await getDoc(membersDocRef());
+  if (snap.exists()) {
+    members = snap.data().list || [];
+  } else {
+    members = ['お父さん', 'お母さん', '子供'];
+    await saveMembers();
+  }
+  if (members.length > 0) currentMember = members[0];
+}
+
+async function saveMembers() {
+  await setDoc(membersDocRef(), { list: members });
+}
+
+async function loadMemberData(name, tab) {
+  const snap = await getDoc(memberDataRef(name, tab));
+  return snap.exists() ? (snap.data().records || []) : [];
+}
+
+async function saveMemberData(name, tab, records) {
+  setSyncStatus('syncing');
+  try {
+    await setDoc(memberDataRef(name, tab), { records });
+    setSyncStatus('ok');
+  } catch(e) {
+    setSyncStatus('error');
+  }
+}
+
+function setSyncStatus(s) {
+  syncStatus = s;
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  el.className = 'sync ' + s;
+  el.innerHTML = s === 'ok' ? '✓ 同期済み' : s === 'syncing' ? '⟳ 同期中' : '✗ エラー';
+}
+
+// ---- render ----
+function today() {
+  return new Date().toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
+}
+
+function render() {
+  const root = document.getElementById('root');
+  root.innerHTML = `
+  <div class="header">
+    <div class="logo">🏥</div>
+    <h1>家族の健康手帳</h1>
+    <div class="sync ok" id="syncStatus">✓ 同期済み</div>
+  </div>
+  <div class="member-section">
+    <div class="member-bar" id="memberBar"></div>
+    <div id="addForm" style="display:none">
+      <div class="add-form">
+        <input id="newName" placeholder="名前を入力" maxlength="8"/>
+        <button onclick="window._addMember()">追加</button>
+        <button onclick="document.getElementById('addForm').style.display='none'" style="background:none;border:none;font-size:22px;color:#ccc;cursor:pointer">×</button>
+      </div>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab${currentTab==='vital'?' active':''}" onclick="window._switchTab('vital',this)">
+      <span class="tab-icon">💉</span>バイタル
+    </button>
+    <button class="tab${currentTab==='exercise'?' active':''}" onclick="window._switchTab('exercise',this)">
+      <span class="tab-icon">🏃</span>運動
+    </button>
+    <button class="tab${currentTab==='medicine'?' active':''}" onclick="window._switchTab('medicine',this)">
+      <span class="tab-icon">💊</span>服薬
+    </button>
+    <button class="tab${currentTab==='temp'?' active':''}" onclick="window._switchTab('temp',this)">
+      <span class="tab-icon">🌡️</span>体温
+    </button>
+  </div>
+  <div class="content" id="content">
+    <div class="loading"><div class="spinner"></div>読み込み中...</div>
+  </div>
+  <div id="modal"></div>`;
+  renderMemberBar();
+  renderContent();
+}
+
+function renderMemberBar() {
+  const bar = document.getElementById('memberBar');
+  if (!bar) return;
+  bar.innerHTML = '';
+  members.forEach(m => {
+    const wrap = document.createElement('div');
+    wrap.className = 'member-wrap';
+    const b = document.createElement('button');
+    b.className = 'member-btn' + (m === currentMember ? ' active' : '');
+    b.textContent = m;
+    b.onclick = () => { currentMember = m; renderMemberBar(); renderContent(); };
+    const ed = document.createElement('button');
+    ed.className = 'edit-icon';
+    ed.title = '編集';
+    ed.textContent = '✏️';
+    ed.onclick = (e) => { e.stopPropagation(); openEditMember(m); };
+    wrap.appendChild(b);
+    wrap.appendChild(ed);
+    bar.appendChild(wrap);
+  });
+  const add = document.createElement('button');
+  add.className = 'add-member-btn';
+  add.textContent = '＋ 追加';
+  add.onclick = () => {
+    const f = document.getElementById('addForm');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  };
+  bar.appendChild(add);
+}
+
+async function renderContent() {
+  const c = document.getElementById('content');
+  if (!c || !currentMember) return;
+  c.innerHTML = '<div class="loading"><div class="spinner"></div>読み込み中...</div>';
+  if (currentTab === 'vital') {
+    const bp = await loadMemberData(currentMember, 'bp');
+    const bs = await loadMemberData(currentMember, 'bs');
+    c.innerHTML = buildVital(bp, bs);
+  } else if (currentTab === 'exercise') {
+    const ex = await loadMemberData(currentMember, 'exercise');
+    c.innerHTML = buildExercise(ex);
+  } else if (currentTab === 'medicine') {
+    const med = await loadMemberData(currentMember, 'medicine');
+    c.innerHTML = buildMedicine(med);
+  } else if (currentTab === 'temp') {
+    const temp = await loadMemberData(currentMember, 'temp');
+    c.innerHTML = buildTemp(temp);
+  }
+}
+
+function bpPill(sys) {
+  const s = parseInt(sys);
+  if (s < 120) return '<span class="pill ok">正常</span>';
+  if (s < 130) return '<span class="pill warn">やや高め</span>';
+  return '<span class="pill danger">要注意</span>';
+}
+function tempPill(t) {
+  const v = parseFloat(t);
+  if (v < 37.5) return '<span class="pill ok">平熱</span>';
+  if (v < 38.5) return '<span class="pill warn">微熱</span>';
+  return '<span class="pill danger">発熱</span>';
+}
+
+function miniChart(arr, field) {
+  if (arr.length < 2) return '';
+  const vals = arr.slice(-7).map(r => parseFloat(r[field]));
+  const min = Math.min(...vals), max = Math.max(...vals), range = max - min || 1;
+  const W = 240, H = 56, p = 6;
+  const pts = vals.map((v, i) => {
+    const x = p + i * (W - p * 2) / (vals.length - 1);
+    const y = H - p - (v - min) / range * (H - p * 2);
+    return [Math.round(x), Math.round(y)];
+  });
+  const polyline = pts.map(([x,y]) => x+','+y).join(' ');
+  return `<div class="chart-wrap"><svg viewBox="0 0 ${W} ${H}" width="100%" height="56" style="overflow:visible">
+  <polyline points="${polyline}" fill="none" stroke="#1976d2" stroke-width="2" stroke-linejoin="round"/>
+  ${pts.map(([x,y],i) => `<circle cx="${x}" cy="${y}" r="3" fill="#fff" stroke="#1976d2" stroke-width="2"/>
+  <text x="${x}" y="${y-8}" text-anchor="middle" font-size="9" fill="#888">${vals[i]}</text>`).join('')}
+  </svg></div>`;
+}
+
+function buildVital(bp, bs) {
+  const lb = bp[bp.length-1], ls = bs[bs.length-1];
+  return `<div class="cards">
+  <div class="card" onclick="window._openRecord('bp')">
+    <div class="clabel">💉 血圧（最高）</div>
+    <div class="cvalue">${lb?lb.sys:'--'}<span class="cunit">mmHg</span>${lb?bpPill(lb.sys):''}</div>
+    <div class="ctrend">${lb?lb.dia+'/'+lb.sys+' '+lb.date:'タップして記録'}</div>
+  </div>
+  <div class="card" onclick="window._openRecord('bs')">
+    <div class="clabel">🩸 血糖値</div>
+    <div class="cvalue">${ls?ls.val:'--'}<span class="cunit">mg/dL</span></div>
+    <div class="ctrend">${ls?ls.timing+' '+ls.date:'タップして記録'}</div>
+  </div>
+  </div>
+  ${miniChart(bp,'sys')}
+  <div class="section-title">最近の記録</div>
+  <div>${bp.slice(-6).reverse().map(r=>`<div class="hist-row"><span class="hist-date">${r.date}</span><span class="hist-val">${r.dia}/${r.sys} mmHg</span></div>`).join('')||'<div class="no-data">まだ記録がありません</div>'}</div>`;
+}
+
+function buildExercise(ex) {
+  const last = ex[ex.length-1];
+  const total = ex.filter(e=>e.date===today()).reduce((s,e)=>s+parseInt(e.steps||0),0);
+  const pct = Math.min(100, Math.round(total/8000*100));
+  return `<div class="cards">
+  <div class="card" onclick="window._openRecord('exercise')">
+    <div class="clabel">👟 今日の歩数</div>
+    <div class="cvalue">${total.toLocaleString()}<span class="cunit">歩</span></div>
+    <div class="goal-bar"><div class="goal-fill" style="width:${pct}%"></div></div>
+    <div class="ctrend${total>=8000?'':' bad'}" style="margin-top:4px">${total>=8000?'🎉 目標達成！':'目標 8,000 歩 ('+pct+'%)'}</div>
+  </div>
+  <div class="card" onclick="window._openRecord('exercise')">
+    <div class="clabel">🔥 運動時間</div>
+    <div class="cvalue">${last?last.min:'--'}<span class="cunit">分</span></div>
+    <div class="ctrend">${last?last.type+' '+last.date:'タップして記録'}</div>
+  </div>
+  </div>
+  <div class="section-title">最近の運動</div>
+  <div>${ex.slice(-6).reverse().map(e=>`<div class="hist-row"><span class="hist-date">${e.date}</span><span class="hist-val">${e.type} ${e.min}分 / ${parseInt(e.steps||0).toLocaleString()}歩</span></div>`).join('')||'<div class="no-data">まだ記録がありません</div>'}</div>`;
+}
+
+function buildMedicine(med) {
+  return `<button class="record-btn" onclick="window._openRecord('medicine')"><span class="rbicon">💊</span> 服薬を記録する</button>
+  <div class="section-title">服薬記録</div>
+  <div>${med.slice(-10).reverse().map(m=>`<div class="hist-row"><span class="hist-date">${m.date} ${m.time}</span><span class="hist-val">${m.name} ${m.dose}</span></div>`).join('')||'<div class="no-data">まだ記録がありません</div>'}</div>`;
+}
+
+function buildTemp(temp) {
+  const last = temp[temp.length-1];
+  return `<div class="cards" style="grid-template-columns:1fr">
+  <div class="card" onclick="window._openRecord('temp')">
+    <div class="clabel">🌡️ 最新の体温</div>
+    <div class="cvalue">${last?last.val:'--'}<span class="cunit">°C</span>${last?tempPill(last.val):''}</div>
+    <div class="ctrend">${last?last.time+' '+last.date:'タップして記録'}</div>
+  </div>
+  </div>
+  ${miniChart(temp,'val')}
+  <div class="section-title">最近の記録</div>
+  <div>${temp.slice(-8).reverse().map(r=>`<div class="hist-row"><span class="hist-date">${r.date} ${r.time}</span><span class="hist-val">${r.val}°C ${tempPill(r.val)}</span></div>`).join('')||'<div class="no-data">まだ記録がありません</div>'}</div>`;
+}
+
+// ---- modal ----
+function showModal(html) {
+  const m = document.getElementById('modal');
+  m.innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)window._closeModal()"><div class="modal"><div class="modal-handle"></div>${html}</div></div>`;
+}
+window._closeModal = () => { document.getElementById('modal').innerHTML = ''; };
+
+window._openRecord = (type) => {
+  const timeNow = new Date().toTimeString().slice(0,5);
+  let body = '';
+  if (type === 'bp') {
+    body = `<h3>💉 血圧を記録</h3>
+    <label>最低血圧（下）mmHg</label><input type="number" id="f_dia" placeholder="75" inputmode="numeric"/>
+    <label>最高血圧（上）mmHg</label><input type="number" id="f_sys" placeholder="120" inputmode="numeric"/>
+    <div class="modal-btns"><button class="btn-cancel" onclick="window._closeModal()">キャンセル</button><button class="btn-save" onclick="window._saveRecord('bp')">保存</button></div>`;
+  } else if (type === 'bs') {
+    body = `<h3>🩸 血糖値を記録</h3>
+    <label>血糖値（mg/dL）</label><input type="number" id="f_val" placeholder="100" inputmode="numeric"/>
+    <label>タイミング</label><select id="f_timing"><option>食前</option><option>食後2時間</option><option>空腹時</option><option>就寝前</option></select>
+    <div class="modal-btns"><button class="btn-cancel" onclick="window._closeModal()">キャンセル</button><button class="btn-save" onclick="window._saveRecord('bs')">保存</button></div>`;
+  } else if (type === 'exercise') {
+    body = `<h3>🏃 運動を記録</h3>
+    <label>種類</label><select id="f_type"><option>ウォーキング</option><option>ランニング</option><option>サイクリング</option><option>筋トレ</option><option>水泳</option><option>ストレッチ</option><option>その他</option></select>
+    <label>時間（分）</label><input type="number" id="f_min" placeholder="30" inputmode="numeric"/>
+    <label>歩数（任意）</label><input type="number" id="f_steps" placeholder="5000" inputmode="numeric"/>
+    <div class="modal-btns"><button class="btn-cancel" onclick="window._closeModal()">キャンセル</button><button class="btn-save" onclick="window._saveRecord('exercise')">保存</button></div>`;
+  } else if (type === 'medicine') {
+    body = `<h3>💊 服薬を記録</h3>
+    <label>薬の名前</label><input type="text" id="f_name" placeholder="例：血圧の薬"/>
+    <label>用量</label><input type="text" id="f_dose" placeholder="例：1錠"/>
+    <label>時間</label><input type="time" id="f_time" value="${timeNow}"/>
+    <div class="modal-btns"><button class="btn-cancel" onclick="window._closeModal()">キャンセル</button><button class="btn-save" onclick="window._saveRecord('medicine')">保存</button></div>`;
+  } else if (type === 'temp') {
+    body = `<h3>🌡️ 体温を記録</h3>
+    <label>体温（°C）</label><input type="number" id="f_val" step="0.1" placeholder="36.5" inputmode="decimal"/>
+    <label>時間</label><input type="time" id="f_time" value="${timeNow}"/>
+    <div class="modal-btns"><button class="btn-cancel" onclick="window._closeModal()">キャンセル</button><button class="btn-save" onclick="window._saveRecord('temp')">保存</button></div>`;
+  }
+  showModal(body);
+};
+
+window._saveRecord = async (type) => {
+  const now = today();
+  let rec = { date: now };
+  if (type === 'bp') {
+    const dia = document.getElementById('f_dia').value;
+    const sys = document.getElementById('f_sys').value;
+    if (!dia || !sys) return alert('値を入力してください');
+    rec = { ...rec, dia, sys };
+  } else if (type === 'bs') {
+    const val = document.getElementById('f_val').value;
+    if (!val) return alert('値を入力してください');
+    rec = { ...rec, val, timing: document.getElementById('f_timing').value };
+  } else if (type === 'exercise') {
+    const min = document.getElementById('f_min').value;
+    if (!min) return alert('時間を入力してください');
+    rec = { ...rec, type: document.getElementById('f_type').value, min, steps: document.getElementById('f_steps').value || '0' };
+  } else if (type === 'medicine') {
+    const name = document.getElementById('f_name').value.trim();
+    if (!name) return alert('薬の名前を入力してください');
+    rec = { ...rec, name, dose: document.getElementById('f_dose').value, time: document.getElementById('f_time').value };
+  } else if (type === 'temp') {
+    const val = document.getElementById('f_val').value;
+    if (!val) return alert('値を入力してください');
+    rec = { ...rec, val, time: document.getElementById('f_time').value };
+  }
+  window._closeModal();
+  const existing = await loadMemberData(currentMember, type);
+  existing.push(rec);
+  await saveMemberData(currentMember, type, existing);
+  renderContent();
+};
+
+// ---- メンバー編集 ----
+function openEditMember(name) {
+  showModal(`<h3>✏️ メンバーを編集</h3>
+  <label>名前</label>
+  <input type="text" id="edit_name" value="${name}" maxlength="8"/>
+  <div class="modal-btns">
+    <button class="btn-cancel" onclick="window._closeModal()">キャンセル</button>
+    <button class="btn-save" onclick="window._saveMemberName('${name}')">保存</button>
+  </div>
+  <button class="btn-danger" onclick="window._confirmDelete('${name}')">🗑 このメンバーを削除</button>`);
+  setTimeout(() => { const i = document.getElementById('edit_name'); if(i){i.focus();i.select();} }, 50);
+}
+
+window._saveMemberName = async (oldName) => {
+  const newName = document.getElementById('edit_name').value.trim();
+  if (!newName) return;
+  if (newName === oldName) { window._closeModal(); return; }
+  if (members.includes(newName)) return alert('その名前はすでに使われています');
+  const idx = members.indexOf(oldName);
+  members[idx] = newName;
+  // データを移行
+  const tabs = ['bp','bs','exercise','medicine','temp'];
+  for (const tab of tabs) {
+    const d = await loadMemberData(oldName, tab);
+    if (d.length > 0) {
+      await setDoc(memberDataRef(newName, tab), { records: d });
+      await setDoc(memberDataRef(oldName, tab), { records: [] });
+    }
+  }
+  if (currentMember === oldName) currentMember = newName;
+  await saveMembers();
+  window._closeModal();
+  render();
+};
+
+window._confirmDelete = (name) => {
+  showModal(`<h3 style="color:#c62828">⚠️ 削除の確認</h3>
+  <p style="font-size:14px;color:#666;margin-top:8px;line-height:1.6">「${name}」のすべての記録を削除します。<br>この操作は元に戻せません。</p>
+  <div class="modal-btns" style="margin-top:16px">
+    <button class="btn-cancel" onclick="openEditMember_('${name}')">戻る</button>
+    <button class="btn-save" style="background:#c62828" onclick="window._deleteMember('${name}')">削除する</button>
+  </div>`);
+};
+// グローバルに公開
+window.openEditMember_ = openEditMember;
+
+window._deleteMember = async (name) => {
+  members = members.filter(m => m !== name);
+  if (currentMember === name) currentMember = members[0] || '';
+  await saveMembers();
+  window._closeModal();
+  render();
+};
+
+window._addMember = async () => {
+  const n = document.getElementById('newName').value.trim();
+  if (!n) return;
+  if (members.includes(n)) return alert('その名前はすでにあります');
+  members.push(n);
+  currentMember = n;
+  await saveMembers();
+  render();
+};
+
+window._switchTab = (tab) => {
+  currentTab = tab;
+  render();
+};
+
+// ---- init ----
+(async () => {
+  await loadMembers();
+  render();
+})();
+</script>
+</body>
+</html>
